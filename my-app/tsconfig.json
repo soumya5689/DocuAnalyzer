@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // ✅ Fix for 'allowSyntheticDefaultImports' error
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+
+    // ✅ Fix for 'An import path can only end with a .tsx extension'
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src"],
+  "references": []
+}
