@@ -5,6 +5,9 @@ import os
 
 from text_extraction import extract_text
 from image_extraction import extract_images
+from summarize import summarize_document
+
+
 from links import extract_links
 from question_ans import answer_question_from_text
 from upload.upload_file import save_upload_file  # Import the utility function
@@ -52,3 +55,16 @@ async def ask_question(filename: str = Form(...), question: str = Form(...)):
     answer = answer_question_from_text(text, question)
     
     return {"answer": answer}
+
+@app.get("/summarize-document/")
+async def summarize_document_api(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    if not os.path.exists(file_path):
+        return {"summary": "File not found."}
+
+    text = extract_text(file_path)
+    summary = summarize_document(text)
+
+    return {"summary": summary}
+

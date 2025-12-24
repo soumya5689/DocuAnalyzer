@@ -1,44 +1,114 @@
 import re
 import faiss
 import torch
-import numpy as np
-from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# Load models
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
-qa_tokenizer = AutoTokenizer.from_pretrained("deepset/roberta-base-squad2")
-qa_model = AutoModelForQuestionAnswering.from_pretrained("deepset/roberta-base-squad2")
+# =========================
+# MODELS (LOAD ONCE)
+# =========================
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-def split_sentences(text):
-    return re.split(r'(?<=[.!?])\s+', text.strip())
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+llm = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-base")
 
-def create_faiss_index(sentences):
-    embeddings = embed_model.encode(sentences).astype("float32")
-    index = faiss.IndexFlatL2(embeddings.shape[1])
+# =========================
+# TEXT CLEANING & CHUNKING
+# =========================
+def clean_text(text):
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def chunk_text(text, chunk_size=400, overlap=80):
+    text = clean_text(text)
+    words = text.split()
+
+    chunks = []
+    start = 0
+    while start < len(words):
+        end = start + chunk_size
+        chunk = " ".join(words[start:end])
+        chunks.append(chunk)
+        start = end - overlap
+
+    return chunks
+
+# =========================
+# VECTOR STORE (IN-MEMORY)
+# =========================
+def build_faiss_index(chunks):
+    embeddings = embed_model.encode(
+        chunks,
+        normalize_embeddings=True
+    ).astype("float32")
+
+    index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings)
-    return index, embeddings, sentences
 
-def get_relevant_context(question, text, top_n=5):
-    sentences = split_sentences(text)
-    index, embeddings, sentences = create_faiss_index(sentences)
-    q_embedding = embed_model.encode([question]).astype("float32")
-    _, indices = index.search(q_embedding, top_n)
-    return " ".join([sentences[i] for i in indices[0]])
+    return index, chunks
 
+# =========================
+# RETRIEVAL
+# =========================
+def retrieve_context(question, index, chunks, top_k=5):
+    q_embed = embed_model.encode(
+        [question],
+        normalize_embeddings=True
+    ).astype("float32")
+
+    scores, indices = index.search(q_embed, top_k * 2)
+
+    relevant_chunks = []
+    for i, score in zip(indices[0], scores[0]):
+        if score > 0.45:  # 🔒 relevance threshold
+            relevant_chunks.append(chunks[i])
+
+    return "\n".join(relevant_chunks[:top_k])
+
+
+# =========================
+# GENERATION (KEY PART)
+# =========================
 def generate_answer(question, context):
-    inputs = qa_tokenizer(question, context, return_tensors="pt", truncation=True)
-    with torch.no_grad():
-        outputs = qa_model(**inputs)
-    start = torch.argmax(outputs.start_logits)
-    end = torch.argmax(outputs.end_logits) + 1
-    answer = qa_tokenizer.convert_tokens_to_string(
-        qa_tokenizer.convert_ids_to_tokens(inputs["input_ids"][0][start:end])
+    prompt = f"""
+You are a senior Python instructor.
+
+Answer the question using the context.
+If the question asks for a definition, explain clearly.
+Do NOT mention algorithms unless asked.
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer in 3–6 clear sentences:
+"""
+
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=1024
     )
-    return answer.strip()
 
+    with torch.no_grad():
+        outputs = llm.generate(
+            **inputs,
+            max_new_tokens=300,
+            temperature=0.25
+        )
+
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+
+# =========================
+# MAIN PIPELINE (RAG)
+# =========================
 def answer_question_from_text(text, question):
-    context = get_relevant_context(question, text)
+    chunks = chunk_text(text)
+    index, chunks = build_faiss_index(chunks)
+    context = retrieve_context(question, index, chunks)
     answer = generate_answer(question, context)
-    return answer if answer else "Sorry, I couldn't find a relevant answer."
-
+    return answer
