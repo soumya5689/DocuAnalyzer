@@ -1,0 +1,76 @@
+--- BACKEND (Python) ---
+
+Virtual Environments
+
+.venv/
+venv/
+env/
+ENV/
+bin/
+lib/
+
+Python Caches & Bytecode
+
+pycache/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+Sensitive Data
+
+.env
+*.log
+
+Backend Build Artifacts
+
+build/
+dist/
+*.egg-info/
+
+--- FRONTEND (Node/React/Vite) ---
+
+Dependencies
+
+node_modules/
+jspm_packages/
+
+Production Builds
+
+frontend/dist/
+frontend/build/
+
+Frontend Logs & Caches
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.stylelintcache
+frontend/.vite/
+
+--- SYSTEM & MEDIA ---
+
+OS Files
+
+.DS_Store
+Thumbs.db
+
+Exclude all PDF files (from any directory)
+
+This prevents your uploaded bank statements or docs from being pushed
+
+*.pdf
+
+Editor Specific
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+--- PROJECT SPECIFIC ---
+
+Exclude specific plot images if you don't want them in the repo
+
+backend/plots/*.png
