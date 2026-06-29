@@ -1,8 +1,9 @@
 fastapi
 uvicorn
 python-multipart
-pillow
-pymupdf
+Pillow
+python-docx
+PyMuPDF
 pytesseract
 opencv-python-headless
 transformers
